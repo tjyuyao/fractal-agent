@@ -8,8 +8,10 @@
 
 from __future__ import annotations
 
+import posixpath
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
+from pathlib import PurePosixPath
 
 from fractal_kernel import dag
 from fractal_kernel.models import Contract, Evidence, Instance
@@ -25,6 +27,7 @@ class ErrorCode(StrEnum):
     CONTRACT_MUTATE = "E-CONTRACT-MUTATE"
     EVIDENCE_UNBOUND = "E-EVIDENCE-UNBOUND"
     PARENT = "E-PARENT"
+    BOUNDARY_WRITE = "E-BOUNDARY-WRITE"
     ONE_HANDLER = "E-ONE-HANDLER"
     DAG_CYCLE = "E-DAG-CYCLE"
     CHECK_UNREGISTERED = "E-CHECK-UNREGISTERED"
@@ -95,3 +98,28 @@ def check_check_kinds(contract: Contract, allowed: frozenset[str] = KNOWN_CHECK_
                 ErrorCode.CHECK_UNREGISTERED,
                 f"check {check.id} has unregistered kind '{check.kind}'",
             )
+
+
+def check_boundary_write(boundary: Sequence[str], path: str) -> None:
+    """A3 / AM-0.1-05：写目标必须 ∈ 本实例 manifest（boundary，D4）。
+
+    纯字符串运算：posixpath 规范化 + 路径组件级包含判定（"src" 不得放行
+    "srcfoo/…"）。绝对路径、根逃逸（".."）、空路径一律拒绝；空 manifest
+    拒绝一切写。工具层拦截（write/edit 前）与提交审计共用本判定。
+    """
+    if not boundary:
+        raise GuardError(ErrorCode.BOUNDARY_WRITE, f"manifest is empty; write '{path}' rejected")
+    if not path or path.startswith("/"):
+        raise GuardError(ErrorCode.BOUNDARY_WRITE, f"write target '{path}' must be relative")
+    normalized = posixpath.normpath(path)
+    if normalized == ".":
+        raise GuardError(ErrorCode.BOUNDARY_WRITE, "write target must not be the worktree root")
+    target = PurePosixPath(normalized)
+    for root in boundary:
+        root_path = PurePosixPath(posixpath.normpath(root))
+        if target.is_relative_to(root_path):
+            return
+    raise GuardError(
+        ErrorCode.BOUNDARY_WRITE,
+        f"write target '{path}' is outside the instance manifest {tuple(boundary)}",
+    )

@@ -28,7 +28,8 @@
 
 - [x] D3 `sat` / D6 `g`/`v`/`r` 纯判定 + 串行驱动器（build/check 协议注入，事件全记录，
       overflow → replan 闭环即 AM-0.1-07）
-- [ ] 移植 agent loop：messages / tools / loop / events + fake provider（ADR-0006）
+- [x] 移植 agent loop：messages / tools / loop / events + fake provider（ADR-0006）；
+      含 OpenAI 兼容适配（httpx）、E-BOUNDARY-WRITE 工具层拦截面、LoopBuildBody 适配器
 - [ ] exec 检查执行器注册表（`fractal_runtime/checks.py`）+ sigma_ref 计算（boundary）
 - [ ] discuss 最小入口（意图 → 顶层契约，checks 过注册表 lint）
 - [ ] 端到端：3 个真实小任务证据链完整（A1）
